@@ -1,0 +1,61 @@
+﻿@page "/login"
+@using WebAssembly.Client.Helpers
+@using WebAssembly.Shared.Models
+@inject IToastService toastService
+@inject HttpClient http
+@inject NavigationManager navigationManager
+@inject AuthenticationStateProvider authenticationProvider
+@inject IJSRuntime js
+
+<PageTitle>Giriş</PageTitle>
+
+
+<AuthorizeView>
+    <Authorized></Authorized>
+    <NotAuthorized>
+        <div class="col-xl-4 col-lg-7" style="margin: 15% auto; width: 400px;">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-center">
+                    <h6 class="m-0 font-weight-bold text-primary">YÖNETİM PANELİ</h6>
+                </div>
+                <div class="card-body bg-dark d-flex flex-column align-items-center justify-content-center">
+                    <div class="input-group mb-3">
+                        <input @bind="login.mail" type="email" class="form-control" placeholder="Mail" aria-label="Username">
+                    </div>
+                    <div class="input-group mb-3">
+                        <input @bind="login.password" type="password" class="form-control" placeholder="Password" aria-label="Password">
+                    </div>
+                    <button @onclick="testlogin" type="button" class="btn btn-primary btn-lg">GİRİŞ YAP</button>
+                </div>
+            </div>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code
+{
+    UserLogin login = new UserLogin();
+
+    private async Task testlogin()
+    {
+        var response = await http.PostAsJsonAsync<UserLogin>("api/users/login", login);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var userSession = await response.Content.ReadFromJsonAsync<UserSession>();
+            var customAuthStateProvider = (CustomAuthenticationStateProvider)authenticationProvider;
+            await customAuthStateProvider.UpdateAuthenticationState(userSession);
+            navigationManager.NavigateTo("", true);
+        }
+        else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            toastService.ShowError("Mail veya şifre geçersiz.");
+            return;
+        }
+        else
+        {
+            toastService.ShowInfo("Sunucu hatası.");
+            return;
+        }
+    }
+}

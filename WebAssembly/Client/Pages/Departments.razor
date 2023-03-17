@@ -1,0 +1,74 @@
+﻿@page "/departments"
+@using Microsoft.AspNetCore.Http.Connections
+@using Microsoft.AspNetCore.SignalR.Client
+@using WebAssembly.Client.Components
+@using WebAssembly.Shared.Models
+@using WebAssembly.Shared.ViewModels
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+<PageTitle>Bölümler</PageTitle>
+
+@if (statistics == null)
+{
+    <p><em>Yükleniyor...</em></p>
+}
+else
+{
+    <div class="row" style="margin-left:0px;margin-right:0px;">
+        @foreach (var departmentStatistic in statistics)
+        {
+            <DepartmentInfo departmentStatistics="departmentStatistic" />
+        }
+    </div>
+}
+
+@code
+{
+    #region HubConnection
+    private HubConnection hubConnection;
+    private StatisticView[] statistics;
+    private Department[] departments;
+
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder().WithUrl(NavigationManager.ToAbsoluteUri("/statisticHub"), options =>
+        {
+            options.SkipNegotiation = true;
+            options.Transports = HttpTransportType.WebSockets;
+
+        }).Build();
+
+        hubConnection.On("ReceiveStatistic", () =>
+        {
+            CallLoadData();
+            StateHasChanged();
+        });
+
+        await hubConnection.StartAsync();
+        await LoadData();
+    }
+
+    private void CallLoadData()
+    {
+        Task.Run(async () =>
+        {
+            await LoadData();
+        });
+    }
+
+    protected async Task LoadData()
+    {
+        statistics = await Http.GetFromJsonAsync<StatisticView[]>("https://localhost:7254/api/statistics/LastDepartmentStatistics");
+
+        StateHasChanged();
+    }
+
+        public void Dispose()
+        {
+            _ = hubConnection.DisposeAsync();
+        }
+
+        public bool isConnected => hubConnection.State == HubConnectionState.Connected;
+        #endregion
+    }

@@ -1,0 +1,113 @@
+﻿@page "/records"
+@using Microsoft.AspNetCore.Http.Connections
+@using System.Security.Claims
+@using Microsoft.AspNetCore.SignalR.Client
+@using WebAssembly.Client.Components
+@using WebAssembly.Shared.Models
+@using WebAssembly.Shared.ViewModels
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+<PageTitle>Veri Kayıt</PageTitle>
+
+@if (departments == null)
+{
+    <p><em>Yükleniyor...</em></p>
+}
+else
+{
+    <div class="row" style="margin-left:0px;margin-right:0px;">
+        <div class="col-xl-4 col-lg-7">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Kayıt Giriş (Rastgele Veri Üretir)</h6>
+                </div>
+                <div class="card-body bg-dark d-flex flex-column align-items-center justify-content-center">
+                    <select class="form-control" @bind="statistic.departmentId">
+                        @foreach (var department in departments)
+                        {
+                            <option value="@department.id">
+                                @department.name
+                            </option>
+                        }
+                    </select>
+                    <button @onclick="SaveData" type="button" class="btn btn-primary btn-lg">KAYDET</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code 
+{
+    #region HubConnection
+    private HubConnection hubConnection;
+    private Department[] departments;
+
+    private Statistic statistic = new Statistic();
+    private Random _random = new Random();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder().WithUrl(NavigationManager.ToAbsoluteUri("/statisticHub"), options =>
+        {
+            options.SkipNegotiation = true;
+            options.Transports = HttpTransportType.WebSockets;
+
+        }).Build();
+
+        hubConnection.On("ReceiveStatistic", () =>
+        {
+            CallLoadData();
+            StateHasChanged();
+        });
+
+        await hubConnection.StartAsync();
+        await LoadData();
+    }
+
+    private void CallLoadData()
+    {
+        Task.Run(async () =>
+        {
+            await LoadData();
+        });
+    }
+
+    private async void SaveData()
+    {
+        statistic.oee = (short)_random.Next(0,100);
+        statistic.quality = (short)_random.Next(0,100);
+        statistic.availability = (short)_random.Next(0,100);
+        statistic.performance = (short)_random.Next(0,100);
+        statistic.recordDate = RandomDay();
+        statistic.isDeleted = false;
+
+        await Http.PostAsJsonAsync<Statistic>("api/statistics", statistic);
+        if (isConnected) await SendMessages();
+    }
+
+    Task SendMessages() => hubConnection.SendAsync("SendStatistic");
+
+    protected async Task LoadData()
+    {
+        departments = await Http.GetFromJsonAsync<Department[]>("api/departments");
+        StateHasChanged();
+    }
+
+    private DateTime RandomDay()
+    {
+        DateTime start = new DateTime(2022, 8, 7);
+        int range = (DateTime.Today - start).Days;
+        return start.AddDays(_random.Next(range));
+    }
+
+    public void Dispose()
+    {
+        _ = hubConnection.DisposeAsync();
+    }
+
+    public bool isConnected => hubConnection.State == HubConnectionState.Connected;
+    #endregion
+}

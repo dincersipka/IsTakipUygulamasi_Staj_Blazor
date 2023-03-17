@@ -1,0 +1,28 @@
+﻿@using ChartJs.Blazor.LineChart
+@using WebAssembly.Shared.Models
+@using WebAssembly.Shared.ViewModels
+
+<div class="col-xl-12 col-lg-7">
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary">@departmentStatistics.departmentName.ToUpper()</h6>
+            <h6 class="m-0 font-weight-bold text-primary">@departmentStatistics.recordDate.ToString("d").ToUpper()</h6>
+        </div>
+        <div class="card-body">
+            <div class="row" style="margin-left:0px;margin-right:0px;">
+                <StatisticCard title="Toplam Ekipman Etkinliği" value="@departmentStatistics.oee.ToString()" />
+
+                <StatisticCard title="Kullanılabilirlik" value="@departmentStatistics.availability.ToString()" />
+
+                <StatisticCard title="Performans" value="@departmentStatistics.performance.ToString()" />
+
+                <StatisticCard title="Kalite" value="@departmentStatistics.quality.ToString()" />
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public StatisticView departmentStatistics { get; set; }
+}

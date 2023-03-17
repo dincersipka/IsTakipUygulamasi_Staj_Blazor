@@ -1,0 +1,32 @@
+﻿@inherits LayoutComponentBase
+@using Blazored.Toast.Configuration
+
+<div class="wrapper d-flex align-items-stretch">
+    <AuthorizeView>
+        <Authorized>
+            <NavMenu />
+            <div id="content" class="p-2 p-md-3 pt-2">
+                <nav class="navbar navbar-expand navbar-light bg-white topbar mb-3 static-top shadow">
+                    <ul class="navbar-nav ml-auto">
+                        <li class="nav-item dropdown no-arrow">
+                            <a class="nav-link" id="user" role="button">
+                                <span class="text-gray-600 small">@context.User.Identity.Name.ToUpper()</span>
+                                <img class="img-profile rounded-circle" src="images/account.svg" />
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+
+                @Body
+            </div>
+        </Authorized>
+        <NotAuthorized>
+            <div id="content" class="p-1 p-md-2 pt-1">
+                @Body
+            </div>
+        </NotAuthorized>
+    </AuthorizeView>
+</div>
+
+
+<BlazoredToasts Position="ToastPosition.BottomRight" Timeout="5" IconType="IconType.FontAwesome" SuccessClass="success-toast-override" SuccessIcon="fa fa-thumbs-up" ErrorIcon="fa fa-bug"/>

@@ -1,0 +1,124 @@
+﻿@page "/messages"
+@using Microsoft.AspNetCore.Http.Connections
+@using System.Security.Claims
+@using Microsoft.AspNetCore.SignalR.Client
+@using WebAssembly.Client.Components
+@using WebAssembly.Shared.ViewModels
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+<PageTitle>Mesajlar</PageTitle>
+
+@if (messages == null)
+{
+    <p><em>Yükleniyor...</em></p>
+}
+else
+{
+    <table class="table table-striped" style="margin-left:8px;margin-right:8px;">
+        <thead>
+            <tr>
+                <th>Gönderen</th>
+                <th>Tarih</th>
+                <th>Mesaj</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var message in messages)
+            {
+                <tr>
+                    <td>@message.senderName</td>
+                    <td>@message.sendDate</td>
+                    <td>@message.message</td>
+                    <td><a href="javascript:void(0)" @onclick="() => ReceivedMessageModalOpen(message)"><b>Cevapla</b></a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+@if (_ReceivedMessageModalOpen)
+{
+    <ReceivedMessageModal receivedMessage="@receivedMessage" OnClose="@ReceivedMessageModalClose"></ReceivedMessageModal>
+}
+
+
+@code {
+
+    #region HubConnection
+    private HubConnection hubConnection;
+    private AuthenticationState authState;
+    private MessageView[] messages;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationState { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        authState = await authenticationState;
+
+        hubConnection = new HubConnectionBuilder().WithUrl(NavigationManager.ToAbsoluteUri("/messageHub"), options =>
+        {
+            options.SkipNegotiation = true;
+            options.Transports = HttpTransportType.WebSockets;
+
+        }).Build();
+
+        hubConnection.On("ReceiveMessage", () =>
+        {
+            CallLoadData();
+            StateHasChanged();
+        });
+
+        await hubConnection.StartAsync();
+        await LoadData();
+    }
+
+    private void CallLoadData()
+    {
+        Task.Run(async () =>
+        {
+            await LoadData();
+        });
+    }
+
+    protected async Task LoadData()
+    {
+        var id = SendCurrentId();
+        messages = id != null ? await Http.GetFromJsonAsync<MessageView[]>("api/messages?id=" + id) : null;
+
+        StateHasChanged();
+    }
+
+    protected string SendCurrentId()
+    {
+        var id = authState.User.Claims.Where(x => x.Type == ClaimTypes.Sid).FirstOrDefault();
+        return id.Value.ToString();
+    }
+
+    public void Dispose()
+    {
+        _ = hubConnection.DisposeAsync();
+    }
+
+    public bool isConnected => hubConnection.State == HubConnectionState.Connected;
+    #endregion
+
+    #region ReceivedMessageModal
+
+    public bool _ReceivedMessageModalOpen { get; set; }
+    public MessageView receivedMessage;
+
+    private async void ReceivedMessageModalClose()
+    {
+        _ReceivedMessageModalOpen = false;
+        StateHasChanged();
+    }
+    private async void ReceivedMessageModalOpen(MessageView _receivedMessage)
+    {
+        receivedMessage = _receivedMessage;
+        _ReceivedMessageModalOpen = true;
+        StateHasChanged();
+    }
+    #endregion
+}

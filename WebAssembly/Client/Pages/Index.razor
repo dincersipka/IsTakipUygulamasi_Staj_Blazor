@@ -1,0 +1,18 @@
+﻿@page "/"
+<PageTitle>Ana Ekran</PageTitle>
+
+<AuthorizeView Roles="Yönetici">
+    <Authorized>
+        <IndexAdmin />
+    </Authorized>
+</AuthorizeView>
+<AuthorizeView Roles="İşçi">
+    <Authorized>
+        <IndexWorker />
+    </Authorized>
+</AuthorizeView>
+<AuthorizeView>
+    <NotAuthorized>
+        <Login />
+    </NotAuthorized>
+</AuthorizeView>

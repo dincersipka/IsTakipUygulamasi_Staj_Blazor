@@ -1,0 +1,73 @@
+﻿@using Microsoft.AspNetCore.Http.Connections
+@using Microsoft.AspNetCore.SignalR.Client
+@using WebAssembly.Client.Components
+@using WebAssembly.Shared.Models
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+@if (statistics == null)
+{
+    <p><em>Yükleniyor...</em></p>  
+}
+else
+{
+<div class="row" style="margin-left:0px;margin-right:0px;">
+    <StatisticChart datas="@statistics" />
+</div>
+
+<div class="row" style="margin-left:0px;margin-right:0px;">
+    <StatisticCard title="Toplam Ekipman Etkinliği" value="@statistics.Last().oee.ToString()" />
+
+    <StatisticCard title="Kullanılabilirlik" value="@statistics.Last().availability.ToString()" />
+
+    <StatisticCard title="Performans" value="@statistics.Last().performance.ToString()" />
+
+    <StatisticCard title="Kalite" value="@statistics.Last().quality.ToString()" />
+</div>
+}
+@code {
+    #region HubConnection
+    private HubConnection hubConnection;
+    private Statistic[] statistics;
+
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder().WithUrl(NavigationManager.ToAbsoluteUri("/statisticHub"), options =>
+        {
+            options.SkipNegotiation = true;
+            options.Transports = HttpTransportType.WebSockets;
+
+        }).Build();
+
+        hubConnection.On("ReceiveStatistic", () =>
+        {
+            CallLoadData();
+            StateHasChanged();
+        });
+
+        await hubConnection.StartAsync();
+        await LoadData();
+    }
+
+    private void CallLoadData()
+    {
+        Task.Run(async () =>
+        {
+            await LoadData();
+        });
+    }
+
+    protected async Task LoadData()
+    {
+        statistics = await Http.GetFromJsonAsync<Statistic[]>("https://localhost:7254/api/statistics/company");
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _ = hubConnection.DisposeAsync();
+    }
+
+    public bool isConnected => hubConnection.State == HubConnectionState.Connected;
+    #endregion
+}

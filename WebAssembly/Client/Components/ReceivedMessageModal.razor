@@ -1,0 +1,74 @@
+﻿@using Microsoft.AspNetCore.Http.Connections
+@using Microsoft.AspNetCore.SignalR.Client
+@using WebAssembly.Shared.ViewModels
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+<div class="modal fade show" id="myModal" style="display:block; background-color: rgba(10,10,10,.8);" aria-modal="true" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@receivedMessage.senderName</h5>
+            </div>
+            <div class="modal-body">
+                <p>@receivedMessage.message</p>
+                <hr />
+                <input @bind="@messageForSend.message" type="text" />
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="@ModalCancel">Vazgeç</button>
+                <button type="button" class="btn btn-primary" @onclick="@CreateMessage">Gönder</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private HubConnection hubConnection;
+    private MessageView messageForSend = new MessageView();
+
+    [Parameter]
+    public MessageView receivedMessage { get; set; }
+    [Parameter]
+    public EventCallback<bool> OnClose { get; set; }
+
+    private Task ModalCancel()
+    {
+        return OnClose.InvokeAsync(false);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder().WithUrl(NavigationManager.ToAbsoluteUri("/messageHub"), options =>
+        {
+            options.SkipNegotiation = true;
+            options.Transports = HttpTransportType.WebSockets;
+
+        }).Build();
+
+        await hubConnection.StartAsync();
+    }
+
+    protected async Task CreateMessage()
+    {
+        messageForSend.id = Guid.NewGuid();
+        messageForSend.sendDate = DateTime.Now;
+        messageForSend.receiverId = receivedMessage.senderId;
+        messageForSend.senderId = receivedMessage.receiverId;
+        messageForSend.senderName = receivedMessage.senderName;
+
+        await Http.PostAsJsonAsync<MessageView>("api/messages", messageForSend);
+        if (isConnected) await SendMessages();
+
+        await OnClose.InvokeAsync(true);
+    }
+
+    Task SendMessages() => hubConnection.SendAsync("SendMessage");
+
+    public void Dispose()
+    {
+        _ = hubConnection.DisposeAsync();
+    }
+
+    public bool isConnected => hubConnection.State == HubConnectionState.Connected;
+}

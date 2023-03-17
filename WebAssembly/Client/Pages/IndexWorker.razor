@@ -1,0 +1,89 @@
+﻿@using Microsoft.AspNetCore.Http.Connections
+@using Microsoft.AspNetCore.SignalR.Client
+@using System.Security.Claims
+@using WebAssembly.Client.Components
+@using WebAssembly.Shared.Models
+@using ChartJs.Blazor.LineChart
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+@if (statistics == null)
+{
+    <p><em>Yükleniyor...</em></p>  
+}
+else
+{
+<div class="row" style="margin-left:0px;margin-right:0px;">
+    <StatisticChart datas="@statistics" />
+</div>
+
+<div class="row" style="margin-left:0px;margin-right:0px;">
+    <StatisticCard title="Toplam Ekipman Etkinliği" value="@statistics.Last().oee.ToString()" />
+
+    <StatisticCard title="Kullanılabilirlik" value="@statistics.Last().availability.ToString()" />
+
+    <StatisticCard title="Performans" value="@statistics.Last().performance.ToString()" />
+
+    <StatisticCard title="Kalite" value="@statistics.Last().quality.ToString()" />
+</div>
+}
+
+@code {
+    #region HubConnection
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationState { get; set; }
+
+    private HubConnection hubConnection;
+    private AuthenticationState authState;
+
+    private Statistic[] statistics;
+
+    protected override async Task OnInitializedAsync()
+    {
+        authState = await authenticationState;
+
+        hubConnection = new HubConnectionBuilder().WithUrl(NavigationManager.ToAbsoluteUri("/statisticHub"), options =>
+        {
+            options.SkipNegotiation = true;
+            options.Transports = HttpTransportType.WebSockets;
+
+        }).Build();
+
+        hubConnection.On("ReceiveStatistic", () =>
+        {
+            CallLoadData();
+            StateHasChanged();
+        });
+
+        await hubConnection.StartAsync();
+        await LoadData();
+    }
+
+    private void CallLoadData()
+    {
+        Task.Run(async () =>
+        {
+            await LoadData();
+        });
+    }
+
+    protected async Task LoadData()
+    {
+        var id = authState.User.Claims.Where(x => x.Type == ClaimTypes.Sid).FirstOrDefault();
+
+        if (id != null)
+        {
+            var user = await Http.GetFromJsonAsync<User>("https://localhost:7254/api/users/" + id.Value);
+            statistics = await Http.GetFromJsonAsync<Statistic[]>("https://localhost:7254/api/statistics/department/" + user.departmentId);
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        _ = hubConnection.DisposeAsync();
+    }
+
+    public bool isConnected => hubConnection.State == HubConnectionState.Connected;
+    #endregion
+}

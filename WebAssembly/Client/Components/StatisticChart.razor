@@ -1,0 +1,89 @@
+﻿@using ChartJs.Blazor.LineChart
+@using WebAssembly.Shared.Models
+
+<div class="col-xl-12 col-lg-7">
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary">Genel Grafik (OEE)</h6>
+        </div>
+        <div class="card-body">
+            <Chart Height="350" Width="60" Config="ChartSettings()"></Chart>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Statistic[] datas { get; set; }
+
+    private LineConfig ChartSettings()
+    {
+        LineConfig lineConfig = new LineConfig();
+
+        var oeeData = new LineDataset<short> 
+        { 
+            Fill = false, 
+            BorderColor = ColorUtil.RandomColorString(), 
+            Label = "OEE" 
+        };
+        var availabilityData = new LineDataset<short> 
+        { 
+            Fill = false, 
+            BorderColor = ColorUtil.RandomColorString(), 
+            Label = "Availability" 
+        };
+        var performanceData = new LineDataset<short> 
+        { 
+            Fill = false, 
+            BorderColor = ColorUtil.RandomColorString(), 
+            Label = "Performance" 
+        };
+        var qualityData = new LineDataset<short> 
+        { 
+            Fill = false, 
+            BorderColor = ColorUtil.RandomColorString(), 
+            Label = "Quality" 
+        };
+
+        foreach (var data in datas)
+        {
+            lineConfig.Data.Labels.Add(data.recordDate.ToString("d"));
+            oeeData.Add(data.oee);
+            availabilityData.Add(data.availability);
+            performanceData.Add(data.performance);
+            qualityData.Add(data.quality);
+        }
+
+        lineConfig.Data.Datasets.Add(oeeData);
+        lineConfig.Data.Datasets.Add(availabilityData);
+        lineConfig.Data.Datasets.Add(performanceData);
+        lineConfig.Data.Datasets.Add(qualityData);
+
+        lineConfig.Options = new LineOptions
+            {
+                MaintainAspectRatio = false,
+                Responsive = true,
+                Scales = new Scales
+                {
+                    YAxes = new List<CartesianAxis>
+                    {
+                        new LinearCartesianAxis
+                        {
+                            Ticks = new LinearCartesianTicks
+                            {
+                                StepSize = 10,
+                                BeginAtZero = true,
+                                SuggestedMax = 100
+                            }
+                        }
+                    }
+                },
+                Legend = new Legend
+                {
+                    Display = false
+                }
+            };
+
+        return lineConfig;
+    }
+}
